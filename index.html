@@ -1,0 +1,89 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>حجم تلاوتي</title>
+<style>
+body{font-family:Arial;background:#f3f6f4;color:#23372d;padding:16px}
+main{max-width:520px;margin:25px auto;background:white;padding:22px;border-radius:16px}
+h2{text-align:center;color:#176b48}
+label{display:block;margin-top:18px;font-weight:bold}
+select,button{width:100%;padding:13px;margin-top:8px;border:1px solid #ccc;border-radius:9px;font-size:16px}
+button{background:#176b48;color:white;border:0}
+#result{margin-top:20px;padding:16px;background:#edf6ef;border-radius:10px;line-height:2;overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+<main>
+<h2>🎧 حجم تلاوتي</h2>
+<p>اعرف حجم السورة قبل الاستماع أو التحميل.</p>
+
+<label>القارئ</label>
+<select id="reader"><option>جارٍ تحميل القراء...</option></select>
+
+<label>الرواية</label>
+<select id="moshaf"><option>اختر القارئ أولاً</option></select>
+
+<label>السورة</label>
+<select id="surah"></select>
+
+<button id="check">اعرف حجم السورة</button>
+<div id="result">اختر القارئ والرواية والسورة.</div>
+</main>
+
+<script>
+const API="https://www.mp3quran.net/api/v3";
+const names=["الفاتحة","البقرة","آل عمران","النساء","المائدة","الأنعام","الأعراف","الأنفال","التوبة","يونس","هود","يوسف","الرعد","إبراهيم","الحجر","النحل","الإسراء","الكهف","مريم","طه","الأنبياء","الحج","المؤمنون","النور","الفرقان","الشعراء","النمل","القصص","العنكبوت","الروم","لقمان","السجدة","الأحزاب","سبأ","فاطر","يس","الصافات","ص","الزمر","غافر","فصلت","الشورى","الزخرف","الدخان","الجاثية","الأحقاف","محمد","الفتح","الحجرات","ق","الذاريات","الطور","النجم","القمر","الرحمن","الواقعة","الحديد","المجادلة","الحشر","الممتحنة","الصف","الجمعة","المنافقون","التغابن","الطلاق","التحريم","الملك","القلم","الحاقة","المعارج","نوح","الجن","المزمل","المدثر","القيامة","الإنسان","المرسلات","النبأ","النازعات","عبس","التكوير","الانفطار","المطففين","الانشقاق","البروج","الطارق","الأعلى","الغاشية","الفجر","البلد","الشمس","الليل","الضحى","الشرح","التين","العلق","القدر","البينة","الزلزلة","العاديات","القارعة","التكاثر","العصر","الهمزة","الفيل","قريش","الماعون","الكوثر","الكافرون","النصر","المسد","الإخلاص","الفلق","الناس"];
+
+const reader=document.getElementById("reader");
+const moshaf=document.getElementById("moshaf");
+const surah=document.getElementById("surah");
+const result=document.getElementById("result");
+let readers=[];
+
+names.forEach((n,i)=>surah.add(new Option((i+1)+" - "+n,i+1)));
+
+async function load(){
+ try{
+  const r=await fetch(API+"/reciters?language=ar");
+  if(!r.ok)throw Error();
+  const d=await r.json();
+  readers=d.reciters||[];
+  reader.innerHTML='<option value="">اختر القارئ</option>';
+  readers.sort((a,b)=>a.name.localeCompare(b.name,"ar"));
+  readers.forEach(x=>reader.add(new Option(x.name,x.id)));
+ }catch(e){
+  reader.innerHTML='<option value="">تعذر تحميل القراء</option>';
+  result.textContent="تعذر جلب القراء. تحقق من الاتصال.";
+ }
+}
+reader.onchange=()=>{
+ const r=readers.find(x=>String(x.id)===reader.value);
+ moshaf.innerHTML="";
+ (r?.moshaf||[]).forEach(x=>moshaf.add(new Option(x.name,x.id)));
+};
+document.getElementById("check").onclick=async()=>{
+ const r=readers.find(x=>String(x.id)===reader.value);
+ const m=r?.moshaf?.find(x=>String(x.id)===moshaf.value);
+ if(!m){result.textContent="اختر القارئ والرواية أولاً.";return;}
+ const n=Number(surah.value);
+ if(!(m.surah_list||"").split(",").map(Number).includes(n)){
+  result.textContent="السورة غير متاحة لهذا التسجيل.";return;
+ }
+ const url=m.server.replace(/\/?$/,"/")+String(n).padStart(3,"0")+".mp3";
+ result.textContent="جارٍ فحص حجم الملف دون تنزيله...";
+ try{
+  const response=await fetch(url,{method:"HEAD"});
+  const size=response.headers.get("Content-Length");
+  if(!response.ok||!size)throw Error();
+  result.innerHTML="<b>القارئ:</b> "+r.name+"<br><b>الرواية:</b> "+m.name+"<br><b>السورة:</b> "+names[n-1]+"<br><b>الحجم:</b> "+(Number(size)/1048576).toFixed(2)+" ميغابايت";
+ }catch(e){
+  result.textContent="لم يسمح خادم الصوت بعرض حجم الملف للمتصفح. لم يتم تنزيل الملف. قد نحتاج إلى طريقة فحص بديلة.";
+ }
+};
+load();
+</script>
+</body>
+</html>
